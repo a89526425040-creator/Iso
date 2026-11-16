@@ -127,7 +127,7 @@ jobs:
               (out / filename).write_bytes(data[offset:offset + size])
               index.append((name, size, address, filename))
           (out / "overlay-index.txt").write_text(
-              "\\n".join(f"{name} size={size} vma=0x{address:X} file={filename}" for name,size,address,filename in index) + "\\n",
+              "\n".join(f"{name} size={size} vma=0x{address:X} file={filename}" for name,size,address,filename in index) + "\\n",
               encoding="utf-8")
           print(f"Extracted {len(index)} VU/DVP sections.")
           PY
@@ -394,6 +394,8 @@ jobs:
                   f"- Chunk counts: {item['chunk_count']} total, {item['container_count']} containers, {item['leaf_count']} leaves",
                   f"- Chunk IDs: `{item['chunk_ids']}`",
                   f"- Known image signatures: `{item['signatures']}`",
+                  f"- Validated embedded images: {len(item['validated_images'])}",
+                  f"- Image metadata: `{item['validated_images']}`",
                   f"- Chunk parser errors: `{item['chunk_errors']}`", "",
                   "Top-level chunks:", "",
                   "| ID | Offset | Size | Kind |", "|---|---:|---:|---|"])
