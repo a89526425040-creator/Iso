@@ -577,6 +577,9 @@ jobs:
               stream.write("\n".join(lines) + "\n")
           PY
 
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Export original RX7 PS2 texture pack to PNG
         run: |
           set -euo pipefail
