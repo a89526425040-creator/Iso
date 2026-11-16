@@ -2,3 +2,4 @@ Run PS2 resource prefix structure analysis.
 Repeat analysis with full geometry chunk validation.
 Run bounded full-file chunk scan for major car models.
 Repeat scan with large car model selection.
+Run corrected chunk-tree report with fixed node counter and line endings.
