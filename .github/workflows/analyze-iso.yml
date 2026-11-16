@@ -151,6 +151,62 @@ jobs:
             mipsel-linux-gnu-objdump -i | grep -Ei 'mips|5900' | head -60 || true
           } > iso/vu-section-analysis-report.md
 
+      - name: Disassemble VU microprogram uploads from the PS2 executable
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vu-tools"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/gothamor/gta-vcs-recomp/main/tools/vudis.py" \
+            --output "$RUNNER_TEMP/vu-tools/vudis.py"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/gothamor/gta-vcs-recomp/main/tools/vu1_recomp.py" \
+            --output "$RUNNER_TEMP/vu-tools/vu1_recomp.py"
+          python3 - "$RUNNER_TEMP/game-data/NFSUNDER/SLUS_210.65" "$RUNNER_TEMP/vu-tools" iso/vu-program-disassembly-report.md <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, sys.argv[2])
+          import vu1_recomp as vr
+          import vudis
+          elf = Path(sys.argv[1])
+          vaddr, stream = vr.read_vutext(str(elf))
+          programs = vr.program_sets(vaddr, stream)
+          lines = [
+              "# PS2 VU microprogram disassembly",
+              "",
+              f"- Executable section virtual address: 0x{vaddr:X}",
+              f"- .vutext bytes: {len(stream):,}",
+              f"- VU microprogram blocks: {len(programs)}",
+              "- Disassembly is derived from MPG uploads found in the executable's .vutext VIF stream.",
+              "",
+          ]
+          if not programs:
+              lines.append("No MPG upload blocks were recognized by the VIF packet scanner.")
+          for index, program in enumerate(programs):
+              code = program["code"]
+              vu = program["vu"]
+              image = bytes(vu) + code
+              listing = vudis.disassemble(image, vu, vu + len(code), False)
+              ebit = sum(" E" in line for line in listing)
+              xgkick = sum("XGKICK" in line for line in listing)
+              reserved = sum("reserved" in line for line in listing)
+              lines.extend([
+                  f"## Program {index + 1}",
+                  "",
+                  f"- VIF source offset: 0x{program['source'] - vaddr:X}",
+                  f"- VU destination address: 0x{vu:X}",
+                  f"- Code bytes / instruction pairs: {len(code):,} / {len(code) // 8:,}",
+                  f"- E-bit instructions: {ebit}",
+                  f"- XGKICK instructions: {xgkick}",
+                  f"- Reserved/unknown decoded instructions: {reserved}",
+                  "",
+                  "```asm",
+              ])
+              lines.extend(listing)
+              lines.extend(["```", ""])
+          Path(sys.argv[3]).write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(f"Disassembled {len(programs)} VU microprogram blocks.")
+          PY
+
       - name: Validate ZDIR index against all four ZZDATA archives
         run: |
           set -euo pipefail
