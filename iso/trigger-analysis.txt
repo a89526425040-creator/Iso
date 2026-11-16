@@ -14,3 +14,4 @@ Publish validated PS2 VIF stream command report.
 Publish VIF report after correcting report staging list.
 Run corrected VIF report staging and publish decoded UNPACK samples.
 Inspect SLUS_210.65 ELF for shared VU microprogram sections and strings.
+Generate experimental VIF XYZ point-cloud artifact for interactive preview.
