@@ -131,37 +131,22 @@ jobs:
               encoding="utf-8")
           print(f"Extracted {len(index)} VU/DVP sections.")
           PY
-          cp "$OUT/.vutext.bin" "$OUT/vutext.bin"
-          cp "$OUT/.DVP.ovlytab.bin" "$OUT/ovlytab.bin"
-          cp "$OUT/.DVP.ovlystrtab.bin" "$OUT/ovlystrtab.bin"
           {
             echo "# PS2 VU executable sections"
             echo
-            echo "- .vutext bytes: $(stat -c '%s' "$OUT/vutext.bin")"
-            echo "- .vutext SHA-256: $(sha256sum "$OUT/vutext.bin" | awk '{print $1}')"
-            echo
-            echo "## VU text byte layout"
-            xxd -g 4 -c 16 "$OUT/vutext.bin" | head -160
-            echo
-            echo "## VU text strings"
-            strings -a -t x -n 3 "$OUT/vutext.bin" | head -120
-            echo
-            echo "## DVP overlay section sizes"
+            echo "## Extracted section index"
             cat "$OUT/overlay-index.txt"
             echo
-            echo "## Overlay table"
-            xxd -g 4 -c 16 "$OUT/ovlytab.bin"
-            echo
-            echo "## Overlay string table"
-            strings -a -t x -n 2 "$OUT/ovlystrtab.bin"
-            echo
-            echo "## Overlay machine words"
-            for overlay in "$OUT"/.DVP.overlay.*.bin; do
+            for section in "$OUT"/*.bin; do
+              [ -f "$section" ] || continue
+              echo "## $(basename "$section")"
+              echo "- Bytes: $(stat -c '%s' "$section")"
+              echo "- SHA-256: $(sha256sum "$section" | awk '{print $1}')"
+              xxd -g 4 -c 16 "$section" | head -160
               echo
-              echo "### $(basename "$overlay")"
-              xxd -g 4 -c 16 "$overlay" | head -140
+              strings -a -t x -n 3 "$section" | head -80 || true
+              echo
             done
-            echo
             echo "## Cross MIPS disassembler availability"
             mipsel-linux-gnu-objdump -i | grep -Ei 'mips|5900' | head -60 || true
           } > iso/vu-section-analysis-report.md
