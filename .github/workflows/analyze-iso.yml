@@ -171,12 +171,51 @@ jobs:
               stream.write("\\n".join(lines))
           PY
 
+      - name: Probe vehicle and track resource headers
+        run: |
+          set -euo pipefail
+          GAME_DIR="$RUNNER_TEMP/game-data/NFSUNDER"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/zdir_probe.py" \
+            --output "$RUNNER_TEMP/zdir_probe.py"
+          python3 "$RUNNER_TEMP/zdir_probe.py" \
+            iso/resource-catalogue.csv \
+            --archive "0=$GAME_DIR/ZZDATA0.BIN" \
+            --archive "1=$GAME_DIR/ZZDATA1.BIN" \
+            --archive "2=$GAME_DIR/ZZDATA2.BIN" \
+            --archive "3=$GAME_DIR/ZZDATA3.BIN" \
+            --output iso/resource-probe.csv \
+            --limit 32
+          python3 - iso/resource-probe.csv iso/resource-probe-report.md <<'PY'
+          import csv
+          import sys
+          with open(sys.argv[1], newline="", encoding="utf-8") as stream:
+              rows = list(csv.DictReader(stream))
+          lines = [
+              "# Vehicle and track resource header probe",
+              "",
+              f"- Unique resources sampled: {len(rows)}",
+              "- Sampling: first 64 bytes per resource; no payload files are extracted.",
+              "",
+              "| Resource | Archive | Offset | Size | First bytes (hex) |",
+              "|---|---:|---:|---:|---|",
+          ]
+          for row in rows:
+              lines.append(
+                  f"| {row['path']} | {row['archive_id']} | {row['offset']} | "
+                  f"{row['size']} | {row['header_hex'] or '(empty)'} |"
+              )
+          lines.append("")
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              stream.write("\\n".join(lines))
+          PY
+
       - name: Commit inspection reports
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
