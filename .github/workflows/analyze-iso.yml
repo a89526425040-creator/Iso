@@ -287,7 +287,7 @@ jobs:
             --output "$RUNNER_TEMP/vehicle-chunk-trees.json" \
             --limit 8 \
             --min-size 1000000
-          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md <<'PY'
+          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/cpp-chunk-reader-report.md <<'PY'
           import json
           import sys
           with open(sys.argv[1], encoding="utf-8") as stream:
@@ -400,6 +400,122 @@ jobs:
               stream.write("\n".join(lines) + "\n")
           PY
 
+      - name: Cross-check C++ chunk reader against PS2 resources
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/include/nfs" "$RUNNER_TEMP/geometry"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/include/nfs/ea_chunk_reader.hpp" \
+            --output "$RUNNER_TEMP/include/nfs/ea_chunk_reader.hpp"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_chunk_cli.cpp" \
+            --output "$RUNNER_TEMP/ps2_chunk_cli.cpp"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_chunk_scan.py" \
+            --output "$RUNNER_TEMP/ps2_chunk_scan.py"
+          g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Werror \
+            -I "$RUNNER_TEMP/include" \
+            "$RUNNER_TEMP/ps2_chunk_cli.cpp" \
+            -o "$RUNNER_TEMP/ps2_chunk_cli"
+          python3 - "$RUNNER_TEMP" "$RUNNER_TEMP/ps2_chunk_cli" <<'PY'
+          import csv
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          cli = sys.argv[2]
+          sys.path.insert(0, str(root))
+          from ps2_chunk_scan import flatten, scan_bytes
+
+          game = root / "game-data" / "NFSUNDER"
+          archives = {
+              0: game / "ZZDATA0.BIN",
+              1: game / "ZZDATA1.BIN",
+              2: game / "ZZDATA2.BIN",
+              3: game / "ZZDATA3.BIN",
+          }
+          output_dir = root / "geometry"
+          lines = [
+              "# C++ / Python PS2 chunk reader cross-check",
+              "",
+              "- Complete PS2 vehicle resources were parsed independently by both readers.",
+              "- The comparison requires exact agreement on chunk, container, leaf, and padding counts.",
+              "- Extracted files exist only in the temporary workflow runner.",
+              "",
+          ]
+          checked = 0
+          with open("iso/resource-catalogue.csv", newline="", encoding="utf-8-sig") as stream:
+              for entry in csv.DictReader(stream):
+                  path = entry["path"]
+                  if (
+                      entry.get("resolution") != "resolved"
+                      or not path
+                      or not path.upper().startswith("CARS\\")
+                      or not path.upper().endswith("\\GEOMETRY.BIN")
+                      or int(entry["size"]) < 1_000_000
+                  ):
+                      continue
+                  archive_id = int(entry["archive_id"])
+                  offset, size = int(entry["byte_offset"]), int(entry["size"])
+                  with archives[archive_id].open("rb") as archive:
+                      archive.seek(offset)
+                      data = archive.read(size)
+                  if len(data) != size:
+                      raise SystemExit(f"short archive read: {path}")
+                  py = scan_bytes(data)
+                  if py["errors"]:
+                      raise SystemExit(f"Python reader error for {path}: {py['errors'][0]}")
+                  resource_file = output_dir / f"vehicle_{checked}.bin"
+                  resource_file.write_bytes(data)
+                  result = subprocess.run(
+                      [cli, str(resource_file)],
+                      check=False, capture_output=True, text=True,
+                  )
+                  if result.returncode:
+                      raise SystemExit(f"C++ reader failed for {path}: {result.stderr}")
+                  match = re.search(
+                      r"chunks=(\\d+) containers=(\\d+) leaves=(\\d+) "
+                      r"padding_regions=(\\d+) padding_bytes=(\\d+)",
+                      result.stdout,
+                  )
+                  if not match:
+                      raise SystemExit(f"unrecognized C++ output for {path}: {result.stdout}")
+                  cpp_counts = tuple(map(int, match.groups()))
+                  nodes = list(flatten(py["nodes"]))
+                  py_counts = (
+                      len(nodes),
+                      sum(node["kind"] == "container" for node in nodes),
+                      sum(node["kind"] == "leaf" for node in nodes),
+                      len(py["padding"]),
+                      sum(item["size"] for item in py["padding"]),
+                  )
+                  if cpp_counts != py_counts:
+                      raise SystemExit(
+                          f"reader disagreement for {path}: C++={cpp_counts}, Python={py_counts}"
+                      )
+                  lines.extend([
+                      f"## {path}",
+                      "",
+                      f"- File bytes: {size:,}",
+                      f"- Matching counts (chunks / containers / leaves / padding regions / padding bytes): {cpp_counts}",
+                      "",
+                      "Chunk ID counts from the C++ reader:",
+                      "",
+                  ])
+                  lines.extend(f"- {line.strip()}" for line in result.stdout.splitlines()[1:])
+                  lines.append("")
+                  checked += 1
+                  if checked >= 8:
+                      break
+          if checked != 8:
+              raise SystemExit(f"expected 8 vehicle resources, checked {checked}")
+          with open("iso/cpp-chunk-reader-report.md", "w", encoding="utf-8") as stream:
+              stream.write("\\n".join(lines) + "\\n")
+          print(f"C++ and Python readers agreed on {checked} complete PS2 geometry files.")
+          PY
+
       - name: Commit inspection reports
         run: |
           set -euo pipefail
@@ -422,4 +538,4 @@ jobs:
         if: always()
         run: |
           rm -f "$RUNNER_TEMP/original.iso" "$RUNNER_TEMP/zdir_inspect.py" "$RUNNER_TEMP/zdir-summary.json"
-          rm -rf "$RUNNER_TEMP/game-data"
+          rm -rf "$RUNNER_TEMP/game-data" "$RUNNER_TEMP/geometry" "$RUNNER_TEMP/include" "$RUNNER_TEMP/ps2_chunk_cli" "$RUNNER_TEMP/ps2_chunk_cli.cpp" "$RUNNER_TEMP/ps2_chunk_scan.py"
