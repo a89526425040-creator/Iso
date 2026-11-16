@@ -1,6 +1,8 @@
 name: Download and inspect PS2 ISO
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -168,7 +170,7 @@ jobs:
               "",
           ]
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
-              stream.write("\\n".join(lines))
+              stream.write("\n".join(lines))
           PY
 
       - name: Probe vehicle and track resource headers
@@ -207,7 +209,7 @@ jobs:
               )
           lines.append("")
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
-              stream.write("\\n".join(lines))
+              stream.write("\n".join(lines))
           PY
 
       - name: Commit inspection reports
