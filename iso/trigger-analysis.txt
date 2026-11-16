@@ -41,3 +41,5 @@ Resolve DVP overlay VU program addresses and capture PS2 TPK decompressed-header
 Retry DVP overlay extraction with ELF string-table fallback and TPK diagnostics.
 
 Run corrected DVP extraction and execute RX7 VIF geometry through PS2 VU1 interpreter; capture GIF packets.
+
+Run PS2 DVP overlay extraction and replay RX7 geometry with all support VU programs loaded.
