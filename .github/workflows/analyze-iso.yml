@@ -101,7 +101,7 @@ jobs:
           EXE="$RUNNER_TEMP/executable/SLUS_210.65"
           OUT="$RUNNER_TEMP/vu-sections"
           mkdir -p "$OUT"
-          objcopy --dump-section .vutext="$OUT/vutext.bin" "$EXE"
+          mipsel-linux-gnu-objcopy --dump-section .vutext="$OUT/vutext.bin" "$EXE"
           objcopy --dump-section .DVP.ovlytab="$OUT/ovlytab.bin" "$EXE"
           objcopy --dump-section .DVP.ovlystrtab="$OUT/ovlystrtab.bin" "$EXE"
           : > "$OUT/overlay-index.txt"
