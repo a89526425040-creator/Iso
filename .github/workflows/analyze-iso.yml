@@ -177,7 +177,8 @@ jobs:
           curl --fail --location --retry 3 \
             "https://raw.githubusercontent.com/gothamor/gta-vcs-recomp/main/tools/vu1_recomp.py" \
             --output "$RUNNER_TEMP/vu-tools/vu1_recomp.py"
-          python3 - "$RUNNER_TEMP/executable/SLUS_210.65" "$RUNNER_TEMP/vu-tools" iso/vu-program-disassembly-report.md <<'PY'
+          python3 - "$RUNNER_TEMP/executable/SLUS_210.65" "$RUNNER_TEMP/vu-tools" iso/vu-program-disassembly-report.md "$RUNNER_TEMP/vutext-programs" "$RUNNER_TEMP/vutext-programs.json" <<'PY'
+          import json
           import sys
           from pathlib import Path
           sys.path.insert(0, sys.argv[2])
@@ -186,6 +187,9 @@ jobs:
           elf = Path(sys.argv[1])
           vaddr, stream = vr.read_vutext(str(elf))
           programs = vr.program_sets(vaddr, stream)
+          raw_dir = Path(sys.argv[4])
+          raw_dir.mkdir(parents=True, exist_ok=True)
+          raw_programs = []
           lines = [
               "# PS2 VU microprogram disassembly",
               "",
@@ -200,6 +204,12 @@ jobs:
           for index, program in enumerate(programs):
               code = program["code"]
               vu = program["vu"]
+              filename = f"program_{index:02d}_{vu:04X}.bin"
+              (raw_dir / filename).write_bytes(code)
+              raw_programs.append({
+                  "index": index, "source": program["source"], "vu": vu,
+                  "bytes": len(code), "file": filename,
+              })
               image = bytes(vu) + code
               listing = vudis.disassemble(image, vu, vu + len(code), False)
               ebit = sum(" E" in line for line in listing)
@@ -220,7 +230,8 @@ jobs:
               lines.extend(listing)
               lines.extend(["```", ""])
           Path(sys.argv[3]).write_text("\n".join(lines) + "\n", encoding="utf-8")
-          print(f"Disassembled {len(programs)} VU microprogram blocks.")
+          Path(sys.argv[5]).write_text(json.dumps({"programs": raw_programs}, indent=2) + "\n", encoding="utf-8")
+          print(f"Disassembled and exported {len(programs)} VU microprogram blocks.")
           PY
 
       - name: Resolve DVP overlays and inspect all PS2 VU programs
