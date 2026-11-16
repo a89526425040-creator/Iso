@@ -9,3 +9,4 @@ Decode VIF commands and vector unpack payloads in PS2 mesh leaves.
 Diagnose VIF stream alignment at first unsupported word.
 Correct VIF packed-vector input sizing and verify full streams.
 Preserve 0x11 command bytes inside PS2 VIF streams.
+Parse VIF streams without stripping embedded 0x11 command bytes.
