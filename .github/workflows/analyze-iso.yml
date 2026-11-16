@@ -333,7 +333,7 @@ jobs:
                   lines.extend(f"- {error}" for error in scan["errors"])
               lines.append("")
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
-              stream.write("\\n".join(lines) + "\\n")
+              stream.write("\n".join(lines) + "\n")
           PY
 
       - name: Commit inspection reports
