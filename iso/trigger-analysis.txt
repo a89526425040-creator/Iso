@@ -16,3 +16,4 @@ Run corrected VIF report staging and publish decoded UNPACK samples.
 Inspect SLUS_210.65 ELF for shared VU microprogram sections and strings.
 Generate experimental VIF XYZ point-cloud artifact for interactive preview.
 Publish SLUS_210.65 executable analysis report after adding it to the report staging list.
+Extract and inspect the PS2 executable .vutext section and DVP overlays.
