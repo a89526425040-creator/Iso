@@ -18,3 +18,4 @@ Generate experimental VIF XYZ point-cloud artifact for interactive preview.
 Publish SLUS_210.65 executable analysis report after adding it to the report staging list.
 Extract and inspect the PS2 executable .vutext section and DVP overlays.
 Re-run VU and DVP overlay extraction with MIPS-aware objcopy and inspect all car TEXTURES.BIN archives.
+Re-run ELF section parsing using a bounds-checked Python ELF32 reader; inspect all VU overlays and car textures.
