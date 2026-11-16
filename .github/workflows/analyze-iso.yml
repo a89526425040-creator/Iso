@@ -528,6 +528,47 @@ jobs:
               stream.write("\n".join(lines) + "\n")
           PY
 
+      - name: Export original RX7 PS2 texture pack to PNG
+        run: |
+          set -euo pipefail
+          GAME_DIR="$RUNNER_TEMP/game-data/NFSUNDER"
+          mkdir -p "$RUNNER_TEMP/tpk-exporter/src" "$RUNNER_TEMP/rx7-textures"
+          python3 - "$GAME_DIR/ZZDATA1.BIN" iso/resource-catalogue.csv "$RUNNER_TEMP/RX7-TEXTURES.BIN" <<'PY'
+          import csv, sys
+          archive, catalogue, output = sys.argv[1:]
+          with open(catalogue, newline="", encoding="utf-8-sig") as stream:
+              rows = csv.DictReader(stream)
+              row = next((r for r in rows if r["path"].upper() == r"CARS\RX7\TEXTURES.BIN"), None)
+          if row is None:
+              raise SystemExit("RX7 texture pack is missing from resource catalogue")
+          if row["resolution"] != "resolved" or int(row["archive_id"]) != 1:
+              raise SystemExit(f"unexpected RX7 texture resource mapping: {row}")
+          with open(archive, "rb") as source:
+              source.seek(int(row["byte_offset"]))
+              payload = source.read(int(row["size"]))
+          if len(payload) != int(row["size"]):
+              raise SystemExit("short read while extracting RX7 texture pack")
+          with open(output, "wb") as target:
+              target.write(payload)
+          print(f"Extracted RX7 texture pack: {len(payload)} bytes")
+          PY
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2-tpk-exporter/Cargo.toml" \
+            --output "$RUNNER_TEMP/tpk-exporter/Cargo.toml"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2-tpk-exporter/src/main.rs" \
+            --output "$RUNNER_TEMP/tpk-exporter/src/main.rs"
+          cargo run --manifest-path "$RUNNER_TEMP/tpk-exporter/Cargo.toml" --release -- \
+            "$RUNNER_TEMP/RX7-TEXTURES.BIN" "$RUNNER_TEMP/rx7-textures"
+          test -s "$RUNNER_TEMP/rx7-textures/texture-manifest.json"
+      - name: Upload decoded RX7 textures
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfsu2-ps2-rx7-textures
+          path: ${{ runner.temp }}/rx7-textures/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Validate PS2 vehicle geometry chunk trees
         run: |
           set -euo pipefail
