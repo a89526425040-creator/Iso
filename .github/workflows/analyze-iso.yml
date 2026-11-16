@@ -106,7 +106,7 @@ jobs:
           from pathlib import Path
           exe, out = Path(sys.argv[1]), Path(sys.argv[2])
           data = exe.read_bytes()
-          if data[:6] != b"\\x7fELF\\x01\\x01":
+          if data[:6] != bytes.fromhex("7f454c460101"):
               raise SystemExit("Expected ELF32 little-endian PS2 executable")
           header = struct.unpack_from("<16sHHIIIIIHHHHHH", data, 0)
           shoff, shentsize, shnum, shstrndx = header[6], header[11], header[12], header[13]
@@ -116,7 +116,7 @@ jobs:
           index = []
           for section in sections:
               name_offset, section_type, flags, address, offset, size = section[:6]
-              end_name = names.find(b"\\0", name_offset)
+              end_name = names.find(bytes([0]), name_offset)
               name = names[name_offset:end_name].decode("ascii", "replace")
               wanted = name == ".vutext" or name in (".DVP.ovlytab", ".DVP.ovlystrtab") or name.startswith(".DVP.overlay.")
               if not wanted or section_type == 8:
