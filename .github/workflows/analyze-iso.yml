@@ -318,7 +318,7 @@ jobs:
               lines.extend(["", "First-level tree (first 24 nodes):", ""])
               def render(nodes, depth=0):
                   for node in nodes:
-                      if len(rendered[0]) >= 24:
+                      if rendered[0] >= 24:
                           return
                       rendered[0] += 1
                       lines.append(
