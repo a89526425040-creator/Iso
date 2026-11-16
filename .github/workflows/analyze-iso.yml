@@ -137,7 +137,12 @@ jobs:
             echo "No report changes to commit."
           else
             git commit -m "Add ZDIR and ZZDATA validation report"
-            git push
+
+            # The main branch may advance while the ISO is downloading.
+            # Rebase this report commit onto the latest main before pushing.
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
           fi
 
       - name: Remove downloaded ISO and extracted data
