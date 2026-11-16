@@ -11,8 +11,8 @@
 - Chunk counts: 1 total, 0 containers, 1 leaves
 - Chunk IDs: `{'0xB3300000': 1}`
 - Known image signatures: `[{'format': 'JPEG', 'offset': 18631}, {'format': 'JPEG', 'offset': 1159367}, {'format': 'BMP', 'offset': 91762}, {'format': 'BMP', 'offset': 133975}, {'format': 'BMP', 'offset': 148286}, {'format': 'BMP', 'offset': 194455}, {'format': 'BMP', 'offset': 200042}, {'format': 'BMP', 'offset': 206069}, {'format': 'BMP', 'offset': 256189}, {'format': 'BMP', 'offset': 349828}, {'format': 'BMP', 'offset': 418915}, {'format': 'BMP', 'offset': 462221}, {'format': 'BMP', 'offset': 569139}, {'format': 'BMP', 'offset': 569191}, {'format': 'BMP', 'offset': 592215}, {'format': 'BMP', 'offset': 655447}, {'format': 'BMP', 'offset': 657851}, {'format': 'BMP', 'offset': 720129}, {'format': 'BMP', 'offset': 929052}, {'format': 'BMP', 'offset': 938516}, {'format': 'BMP', 'offset': 1046686}, {'format': 'BMP', 'offset': 1086558}, {'format': 'BMP', 'offset': 1116766}, {'format': 'BMP', 'offset': 1121135}, {'format': 'BMP', 'offset': 1186793}, {'format': 'BMP', 'offset': 1200256}, {'format': 'BMP', 'offset': 1231905}, {'format': 'BMP', 'offset': 1276766}]`
-- Validated embedded images: 2
-- Image metadata: `[{'format': 'JPEG', 'offset': 18631, 'width': 61247, 'height': 61311, 'precision': 160, 'components': 239}, {'format': 'JPEG', 'offset': 1159367, 'width': 61247, 'height': 61311, 'precision': 160, 'components': 239}]`
+- Validated embedded images: 0
+- Image metadata: `[]`
 - Chunk parser errors: `[]`
 
 Top-level chunks:
@@ -238,8 +238,8 @@ Top-level chunks:
 - Chunk counts: 1 total, 0 containers, 1 leaves
 - Chunk IDs: `{'0xB3300000': 1}`
 - Known image signatures: `[{'format': 'JPEG', 'offset': 86121}, {'format': 'BMP', 'offset': 220766}, {'format': 'BMP', 'offset': 283815}, {'format': 'BMP', 'offset': 285563}, {'format': 'BMP', 'offset': 285567}, {'format': 'BMP', 'offset': 321218}, {'format': 'BMP', 'offset': 547858}, {'format': 'BMP', 'offset': 701227}, {'format': 'BMP', 'offset': 882352}]`
-- Validated embedded images: 1
-- Image metadata: `[{'format': 'JPEG', 'offset': 86121, 'width': 7977, 'height': 43540, 'precision': 152, 'components': 32}]`
+- Validated embedded images: 0
+- Image metadata: `[]`
 - Chunk parser errors: `[]`
 
 Top-level chunks:
