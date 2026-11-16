@@ -23,3 +23,5 @@ Re-run ELF section parsing using a bounds-checked Python ELF32 reader; inspect a
 ELF parser correction 2026-11-16T15:55:56.954Z
 
 Run 2026-11-16: persist VU and texture analysis reports; no experimental point-cloud preview.
+
+Re-run image header validation for all car textures and persist readable reports.
