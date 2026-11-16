@@ -28,16 +28,32 @@ jobs:
         run: |
           set -euo pipefail
           API_URL="https://cloud-api.yandex.net/v1/disk/public/resources/download"
-          HREF="$(curl --fail --silent --show-error --get \
-            --data-urlencode "public_key=$YANDEX_PUBLIC_URL" \
-            "$API_URL" | jq -r '.href // empty')"
-          if [ -z "$HREF" ]; then
-            echo "::error::Yandex Disk did not return a download URL. The link may require access or confirmation."
+          EXPECTED_BYTES=2882076672
+          for attempt in 1 2 3 4 5; do
+            echo "ISO download attempt $attempt/5"
+            HREF="$(curl --http1.1 --fail --silent --show-error --get \
+              --data-urlencode "public_key=$YANDEX_PUBLIC_URL" \
+              "$API_URL" | jq -r '.href // empty')"
+            if [ -z "$HREF" ]; then
+              echo "::warning::Yandex Disk did not return a download URL on attempt $attempt."
+              sleep 5
+              continue
+            fi
+            if curl --http1.1 --fail --location --retry 2 --retry-all-errors --retry-delay 5 \
+              --continue-at - --output "$RUNNER_TEMP/original.iso" "$HREF"; then
+              ACTUAL_BYTES="$(stat -c '%s' "$RUNNER_TEMP/original.iso")"
+              if [ "$ACTUAL_BYTES" -eq "$EXPECTED_BYTES" ]; then
+                break
+              fi
+              echo "::warning::Partial ISO download: $ACTUAL_BYTES / $EXPECTED_BYTES bytes."
+            fi
+            sleep 5
+          done
+          ACTUAL_BYTES="$(stat -c '%s' "$RUNNER_TEMP/original.iso" 2>/dev/null || echo 0)"
+          if [ "$ACTUAL_BYTES" -ne "$EXPECTED_BYTES" ]; then
+            echo "::error::ISO download incomplete: $ACTUAL_BYTES / $EXPECTED_BYTES bytes after retries."
             exit 1
           fi
-          curl --fail --location --retry 3 --retry-delay 5 \
-            --output "$RUNNER_TEMP/original.iso" "$HREF"
-          test -s "$RUNNER_TEMP/original.iso"
           echo "Downloaded file:"
           ls -lh "$RUNNER_TEMP/original.iso"
           file "$RUNNER_TEMP/original.iso"
