@@ -177,7 +177,7 @@ jobs:
           curl --fail --location --retry 3 \
             "https://raw.githubusercontent.com/gothamor/gta-vcs-recomp/main/tools/vu1_recomp.py" \
             --output "$RUNNER_TEMP/vu-tools/vu1_recomp.py"
-          python3 - "$RUNNER_TEMP/game-data/NFSUNDER/SLUS_210.65" "$RUNNER_TEMP/vu-tools" iso/vu-program-disassembly-report.md <<'PY'
+          python3 - "$RUNNER_TEMP/executable/SLUS_210.65" "$RUNNER_TEMP/vu-tools" iso/vu-program-disassembly-report.md <<'PY'
           import sys
           from pathlib import Path
           sys.path.insert(0, sys.argv[2])
