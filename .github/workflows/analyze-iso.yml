@@ -287,7 +287,7 @@ jobs:
             --output "$RUNNER_TEMP/vehicle-chunk-trees.json" \
             --limit 8 \
             --min-size 1000000
-          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/cpp-chunk-reader-report.md iso/vif-stream-probe-report.md <<'PY'
+          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/cpp-chunk-reader-report.md iso/vif-stream-probe-report.md iso/vif-stream-probe-report.md <<'PY'
           import json
           import sys
           with open(sys.argv[1], encoding="utf-8") as stream:
