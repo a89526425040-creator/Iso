@@ -259,12 +259,25 @@ jobs:
           for error in report["errors"]:
               lines.append(f"- ERROR: {error}")
           for program in report["programs"]:
+              lines.extend([f"## Program {program['program_id']} at VU 0x{program['vu_start']:04X}", "",
+                            f"- Chunks: {program['chunk_count']}",
+                            f"- Allocated bytes / file-backed bytes: {program['allocated_bytes']} / {program['file_backed_bytes']}",
+                            f"- Chunk addresses contiguous: {program['contiguous']}", ""])
+              lines.extend(["| Chunk | EE address | VU address | Allocated bytes | ELF section type | Storage |",
+                            "|---:|---:|---:|---:|---:|---|"])
+              for chunk in program["chunks"]:
+                  storage = "NOBITS placeholder" if chunk["section_type"] == 8 else "file-backed"
+                  lines.append(f"| {chunk['chunk']} | 0x{chunk['ee_address']:08X} | 0x{chunk['vu_address']:04X} | {chunk['allocated_bytes']} | {chunk['section_type']} | {storage} |")
+              lines.append("")
+              if program["file_backed_bytes"] == 0:
+                  lines.extend(["- No code bytes are stored in these ELF overlay sections; EE addresses point into the executable .vutext upload stream.", ""])
+                  continue
               raw = (binary_dir / program["file"]).read_bytes()
               if len(raw) % 8:
-                  lines.append(f"## Program {program['program_id']} — malformed size {len(raw)}")
+                  lines.append(f"- Malformed file-backed payload size: {len(raw)}")
                   continue
               pairs = len(raw) // 8
-              ebit = xgkick = reserved = 0
+              ebit = 0
               for pos in range(0, len(raw), 8):
                   lower, upper = struct.unpack_from("<II", raw, pos)
                   ebit += bool(upper & (1 << 30))
@@ -272,14 +285,12 @@ jobs:
               disasm = vudis.disassemble(base, program["vu_start"], program["vu_start"] + len(raw), False)
               xgkick = sum("XGKICK" in line for line in disasm)
               reserved = sum("reserved" in line.lower() for line in disasm)
-              lines.extend([f"## Program {program['program_id']} at VU 0x{program['vu_start']:04X}", "",
-                            f"- Chunks: {program['chunk_count']}", f"- Code bytes / instruction pairs: {len(raw)} / {pairs}",
-                            f"- Chunk addresses contiguous: {program['contiguous']}",
+              lines.extend([f"- File-backed code bytes / instruction pairs: {len(raw)} / {pairs}",
                             f"- E-bit instructions: {ebit}", f"- XGKICK instructions: {xgkick}",
                             f"- Reserved/unknown instructions: {reserved}", ""])
               interesting = [line for line in disasm if "XGKICK" in line or " E" in line or "reserved" in line.lower()]
               sample = disasm if program["vu_start"] == 0 and len(raw) <= 0x800 else (disasm[:32] + interesting[:40])
-              lines.extend(["```asm", *sample, "```", ""])
+              lines.extend(["Assembly sample:", *sample, ""])
           output.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
 
