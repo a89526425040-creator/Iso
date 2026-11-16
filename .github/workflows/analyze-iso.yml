@@ -766,6 +766,7 @@ jobs:
             --output "$RUNNER_TEMP/vif-probe.json" \
             --vehicles 3 \
             --meshes 3
+            --raw-dir "$RUNNER_TEMP/vif-streams"
           python3 - "$RUNNER_TEMP/vif-probe.json" iso/vif-stream-probe-report.md <<'PY'
           import json
           import sys
@@ -847,6 +848,72 @@ jobs:
           with open(sample_path, "w", encoding="utf-8") as stream:
               stream.write("\n".join(sample_lines) + "\n")
           PY
+
+      - name: Replay RX7 geometry through PS2 VIF1 and VU1
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/vs-sr-dev/ps2kit.git "$RUNNER_TEMP/ps2kit"
+          sed '/ee_vu0_vu1reg/d' "$RUNNER_TEMP/ps2kit/runtime/services_stub.cpp" > "$RUNNER_TEMP/services_stub.cpp"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2-vu-replay.cpp" \
+            --output "$RUNNER_TEMP/ps2-vu-replay.cpp"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_vu_replay.py" \
+            --output "$RUNNER_TEMP/ps2_vu_replay.py"
+          g++ -std=c++20 -O2 -ffp-contract=off -pthread \
+            -I "$RUNNER_TEMP/ps2kit/runtime" \
+            "$RUNNER_TEMP/ps2kit/runtime/core.cpp" \
+            "$RUNNER_TEMP/services_stub.cpp" \
+            "$RUNNER_TEMP/ps2kit/runtime/vu.cpp" \
+            "$RUNNER_TEMP/ps2kit/runtime/vif1.cpp" \
+            "$RUNNER_TEMP/ps2kit/runtime/vu1_none.cpp" \
+            "$RUNNER_TEMP/ps2-vu-replay.cpp" \
+            -o "$RUNNER_TEMP/ps2-vu-replay"
+          python3 "$RUNNER_TEMP/ps2_vu_replay.py" \
+            --dvp-json "$RUNNER_TEMP/dvp-overlays.json" \
+            --dvp-dir "$RUNNER_TEMP/vu-overlays" \
+            --vif-json "$RUNNER_TEMP/vif-probe.json" \
+            --vif-dir "$RUNNER_TEMP/vif-streams" \
+            --harness "$RUNNER_TEMP/ps2-vu-replay" \
+            --output-dir "$RUNNER_TEMP/vu-replay" \
+            --vehicle 'CARS\RX7\GEOMETRY.BIN' \
+            --timeout 15
+          python3 - "$RUNNER_TEMP/vu-replay/vu-replay-report.json" iso/vu-replay-report.md <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              report = json.load(stream)
+          lines = ["# PS2 RX7 VIF1/VU1 replay", "",
+                   f"- Vehicle resource: {report['vehicle']}",
+                   f"- Candidate DVP programs at VU address 0: {report['candidate_programs']}",
+                   f"- Geometry VIF streams: {report['streams']}",
+                   f"- Replay attempts: {len(report['replays'])}",
+                   "- VU memory/register dumps and GIF packet captures are kept as a workflow artifact, not committed.", ""]
+          for item in report["replays"]:
+              lines.extend([f"## Program {item['program_id']} / stream {item['stream_index']}", "",
+                            f"- VU code bytes / pairs: {item['program_bytes']} / {item['instruction_pairs']}",
+                            f"- E-bit instructions / XGKICK instructions: {item['ebit_instructions']} / {item['xgkick_instructions']}",
+                            f"- Return code: {item.get('return_code', 'timeout')}",
+                            f"- GIF bytes / path-1 quadwords: {item.get('gif_bytes', 0)} / {item.get('path1_qwc', 0)}",
+                            f"- GIF tags / EOP packets: {item.get('gif_tag_count', 0)} / {item.get('gif_eop_packets', 0)}",
+                            f"- GIF parse errors: {item.get('gif_parse_errors', 0)}",
+                            f"- VU dumps: {item.get('vu_dump_files', [])}", ""])
+              if item.get("timeout"):
+                  lines.append("- Replay timed out before the VU program returned")
+              if item.get("stderr"):
+                  lines.extend(["", "```text", item["stderr"], "```"])
+              if item.get("stdout"):
+                  lines.extend(["", "```text", item["stdout"], "```"])
+              lines.append("")
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              stream.write("\n".join(lines) + "\n")
+          PY
+      - name: Upload PS2 VU replay diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfsu2-ps2-vu1-replay-diagnostics
+          path: ${{ runner.temp }}/vu-replay/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Cross-check C++ chunk reader against PS2 resources
         run: |
@@ -969,7 +1036,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/vu-section-analysis-report.md iso/vu-program-disassembly-report.md iso/dvp-overlay-report.md iso/texture-probe-report.md iso/tpk-structure-report.md iso/cpp-chunk-reader-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/vu-section-analysis-report.md iso/vu-program-disassembly-report.md iso/dvp-overlay-report.md iso/vu-replay-report.md iso/texture-probe-report.md iso/tpk-structure-report.md iso/cpp-chunk-reader-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
