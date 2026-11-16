@@ -266,11 +266,13 @@ jobs:
               lines.extend(["| Chunk | EE address | VU address | Allocated bytes | ELF section type | Storage |",
                             "|---:|---:|---:|---:|---:|---|"])
               for chunk in program["chunks"]:
-                  storage = "NOBITS placeholder" if chunk["section_type"] == 8 else "file-backed"
+                  storage = ("NOBITS placeholder" if chunk["section_type"] == 8
+                             else "zero-filled placeholder" if chunk["zero_filled"]
+                             else "file-backed code")
                   lines.append(f"| {chunk['chunk']} | 0x{chunk['ee_address']:08X} | 0x{chunk['vu_address']:04X} | {chunk['allocated_bytes']} | {chunk['section_type']} | {storage} |")
               lines.append("")
-              if program["file_backed_bytes"] == 0:
-                  lines.extend(["- No code bytes are stored in these ELF overlay sections; EE addresses point into the executable .vutext upload stream.", ""])
+              if program["file_backed_bytes"] == 0 or program["zero_filled"]:
+                  lines.extend(["- Overlay payload is a zero-filled placeholder; EE addresses map the actual upload data in the executable .vutext stream.", ""])
                   continue
               raw = (binary_dir / program["file"]).read_bytes()
               if len(raw) % 8:
