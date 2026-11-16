@@ -1,0 +1,75 @@
+name: Download and inspect PS2 ISO
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout Iso repository
+        uses: actions/checkout@v4
+
+      - name: Install ISO inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full file
+
+      - name: Download ISO from Yandex Disk
+        env:
+          YANDEX_PUBLIC_URL: https://disk.yandex.ru/d/B5b8qaTTemfe1w
+        run: |
+          set -euo pipefail
+          API_URL="https://cloud-api.yandex.net/v1/disk/public/resources/download"
+          HREF="$(curl --fail --silent --show-error --get \
+            --data-urlencode "public_key=$YANDEX_PUBLIC_URL" \
+            "$API_URL" | jq -r '.href // empty')"
+          if [ -z "$HREF" ]; then
+            echo "::error::Yandex Disk did not return a download URL. The link may require access or confirmation."
+            exit 1
+          fi
+          curl --fail --location --retry 3 --retry-delay 5 \
+            --output "$RUNNER_TEMP/original.iso" "$HREF"
+          test -s "$RUNNER_TEMP/original.iso"
+          echo "Downloaded file:"
+          ls -lh "$RUNNER_TEMP/original.iso"
+          file "$RUNNER_TEMP/original.iso"
+          sha256sum "$RUNNER_TEMP/original.iso" | tee iso/sha256.txt
+
+      - name: Inspect ISO filesystem and list files
+        run: |
+          set -euo pipefail
+          {
+            echo "# ISO inspection report"
+            echo
+            echo "- Source: public Yandex Disk link"
+            echo "- File: original.iso"
+            echo "- Size: $(stat -c '%s bytes' "$RUNNER_TEMP/original.iso")"
+            echo "- SHA-256: $(sha256sum "$RUNNER_TEMP/original.iso" | awk '{print $1}')"
+            echo
+            echo "## 7-Zip listing"
+            echo ' ```text'
+            7z l -slt "$RUNNER_TEMP/original.iso"
+            echo ' ```'
+          } > iso/inspection-report.md
+
+      - name: Commit inspection report
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add iso/sha256.txt iso/inspection-report.md
+          if git diff --cached --quiet; then
+            echo "No report changes to commit."
+          else
+            git commit -m "Add ISO inspection report"
+            git push
+          fi
+
+      - name: Remove downloaded ISO
+        if: always()
+        run: rm -f "$RUNNER_TEMP/original.iso"
