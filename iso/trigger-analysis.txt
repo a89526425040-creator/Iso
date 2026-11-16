@@ -5,3 +5,4 @@ Repeat scan with large car model selection.
 Run corrected chunk-tree report with fixed node counter and line endings.
 Probe PS2 geometry leaf payload structure for vertices and indices.
 Run C++/Python cross-check and commit mesh numeric report.
+Decode VIF commands and vector unpack payloads in PS2 mesh leaves.
