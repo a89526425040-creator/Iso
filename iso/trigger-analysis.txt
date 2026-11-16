@@ -35,3 +35,5 @@ Retry after correcting executable path for VU disassembly.
 Parse nested B3300000 TPK texture packs and inventory streaming entries.
 
 Decode and publish the original PS2 RX7 texture pack as PNG files for model reconstruction.
+
+Resolve DVP overlay VU program addresses and capture PS2 TPK decompressed-header diagnostics.
