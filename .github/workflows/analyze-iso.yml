@@ -20,7 +20,7 @@ jobs:
       - name: Install ISO inspection tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y p7zip-full file
+          sudo apt-get install -y p7zip-full file binutils-mipsel-linux-gnu
 
       - name: Download ISO from Yandex Disk
         env:
@@ -102,6 +102,18 @@ jobs:
           OUT="$RUNNER_TEMP/vu-sections"
           mkdir -p "$OUT"
           objcopy --dump-section .vutext="$OUT/vutext.bin" "$EXE"
+          objcopy --dump-section .DVP.ovlytab="$OUT/ovlytab.bin" "$EXE"
+          objcopy --dump-section .DVP.ovlystrtab="$OUT/ovlystrtab.bin" "$EXE"
+          : > "$OUT/overlay-index.txt"
+          while IFS= read -r section; do
+            case "$section" in
+              .DVP.overlay.*)
+                safe="$(printf '%s' "$section" | tr '/ ' '__')"
+                objcopy --dump-section "$section=$OUT/$safe.bin" "$EXE"
+                printf '%s %s\\n' "$section" "$(stat -c '%s' "$OUT/$safe.bin")" >> "$OUT/overlay-index.txt"
+                ;;
+            esac
+          done < <(readelf -SW "$EXE" | sed -n 's/^ *\\[[ 0-9]*\\] \\(\\.DVP\\.overlay\\.[^ ]*\\).*/\\1/p')
           {
             echo "# PS2 VU executable sections"
             echo
@@ -114,8 +126,24 @@ jobs:
             echo "## VU text strings"
             strings -a -t x -n 3 "$OUT/vutext.bin" | head -120
             echo
-            echo "## Available MIPS disassembler support"
-            objdump -i | grep -Ei 'mips|5900' | head -60 || true
+            echo "## DVP overlay section sizes"
+            cat "$OUT/overlay-index.txt"
+            echo
+            echo "## Overlay table"
+            xxd -g 4 -c 16 "$OUT/ovlytab.bin"
+            echo
+            echo "## Overlay string table"
+            strings -a -t x -n 2 "$OUT/ovlystrtab.bin"
+            echo
+            echo "## Overlay machine words"
+            for overlay in "$OUT"/.DVP.overlay.*.bin; do
+              echo
+              echo "### $(basename "$overlay")"
+              xxd -g 4 -c 16 "$overlay" | head -140
+            done
+            echo
+            echo "## Cross MIPS disassembler availability"
+            mipsel-linux-gnu-objdump -i | grep -Ei 'mips|5900' | head -60 || true
           } > iso/vu-section-analysis-report.md
 
       - name: Validate ZDIR index against all four ZZDATA archives
