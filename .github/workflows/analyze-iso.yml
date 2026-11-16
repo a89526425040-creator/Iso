@@ -885,6 +885,7 @@ jobs:
           lines = ["# PS2 RX7 VIF1/VU1 replay", "",
                    f"- Vehicle resource: {report['vehicle']}",
                    f"- Candidate DVP programs at VU address 0: {report['candidate_programs']}",
+                   f"- Supporting DVP programs preloaded: {report['support_programs_loaded']}",
                    f"- Geometry VIF streams: {report['streams']}",
                    f"- Replay attempts: {len(report['replays'])}",
                    "- VU memory/register dumps and GIF packet captures are kept as a workflow artifact, not committed.", ""]
