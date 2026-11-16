@@ -651,7 +651,7 @@ jobs:
                   width = int.from_bytes(header[32:34], "little") if len(header) >= 39 else 0
                   height = int.from_bytes(header[34:36], "little") if len(header) >= 39 else 0
                   fmt = header[38] if len(header) >= 39 else 0
-                  name = bytes.fromhex(item.get("name_hex", "")).split(b"\\0", 1)[0].decode("ascii", "replace")
+                  name = bytes.fromhex(item.get("name_hex", "")).split(b"\0", 1)[0].decode("ascii", "replace")
                   lines.append(f"| `{item['hash']}` | {item.get('header_offset')} | {item.get('header_hash_matches')} | `{name}` | {width} | {height} | 0x{fmt:02X} |")
           if report.get("textures"):
               lines.extend(["", "## Decoded textures", "",
