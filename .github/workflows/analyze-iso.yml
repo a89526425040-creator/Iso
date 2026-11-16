@@ -287,7 +287,7 @@ jobs:
             --output "$RUNNER_TEMP/vehicle-chunk-trees.json" \
             --limit 8 \
             --min-size 1000000
-          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md <<'PY'
+          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md <<'PY'
           import json
           import sys
           with open(sys.argv[1], encoding="utf-8") as stream:
@@ -332,6 +332,70 @@ jobs:
                   lines.extend(["", "Errors:"])
                   lines.extend(f"- {error}" for error in scan["errors"])
               lines.append("")
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              stream.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Probe PS2 mesh leaf numeric layouts
+        run: |
+          set -euo pipefail
+          GAME_DIR="$RUNNER_TEMP/game-data/NFSUNDER"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_mesh_probe.py" \
+            --output "$RUNNER_TEMP/ps2_mesh_probe.py"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_chunk_scan.py" \
+            --output "$RUNNER_TEMP/ps2_chunk_scan.py"
+          python3 "$RUNNER_TEMP/ps2_mesh_probe.py" \
+            iso/resource-catalogue.csv \
+            --archive "0=$GAME_DIR/ZZDATA0.BIN" \
+            --archive "1=$GAME_DIR/ZZDATA1.BIN" \
+            --archive "2=$GAME_DIR/ZZDATA2.BIN" \
+            --archive "3=$GAME_DIR/ZZDATA3.BIN" \
+            --output "$RUNNER_TEMP/mesh-leaf-probe.json" \
+            --vehicles 3 \
+            --meshes 3
+          python3 - "$RUNNER_TEMP/mesh-leaf-probe.json" iso/mesh-leaf-probe-report.md <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              resources = json.load(stream)["resources"]
+          lines = [
+              "# PS2 mesh leaf numeric probe",
+              "",
+              f"- Vehicle resources: {len(resources)}",
+              f"- Geometry containers: {sum(len(item['meshes']) for item in resources)}",
+              "- Samples are bounded numeric interpretations of leaf prefixes; raw payload bytes are not committed.",
+              "",
+          ]
+          for item in resources:
+              lines.extend([
+                  f"## {item['path']}",
+                  "",
+                  f"- File size: {item['file_size']:,} bytes",
+                  f"- Geometry containers in file: {item['geometry_container_count']}",
+                  "",
+              ])
+              for mesh in item["meshes"]:
+                  lines.extend([
+                      f"### Geometry container {mesh['mesh_index']} at 0x{mesh['container_offset']:X}",
+                      "",
+                      f"- Container payload size: {mesh['container_size']:,} bytes",
+                      "",
+                  ])
+                  for leaf in mesh["leaves"]:
+                      lines.extend([
+                          f"#### {leaf['id']} at 0x{leaf['chunk_offset']:X}",
+                          "",
+                          f"- Payload size: {leaf['payload_size']} bytes",
+                          f"- Leading 0x11 / zero bytes: {leaf['leading_0x11_bytes']} / {leaf['leading_zero_bytes']}",
+                          f"- First u16 values: {leaf['first_u16']}",
+                          f"- First u32 values: {leaf['first_u32_hex']}",
+                          f"- Finite f32 candidates: {leaf['first_f32_candidates']}",
+                          f"- Size divisibility candidates (skip, stride, records): {leaf['size_divisibility_candidates']}",
+                          "",
+                      ])
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
               stream.write("\n".join(lines) + "\n")
           PY
