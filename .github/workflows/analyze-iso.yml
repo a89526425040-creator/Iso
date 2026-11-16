@@ -20,7 +20,7 @@ jobs:
       - name: Install ISO inspection tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y p7zip-full file binutils-mipsel-linux-gnu
+          sudo apt-get install -y p7zip-full file
 
       - name: Download ISO from Yandex Disk
         env:
@@ -101,19 +101,39 @@ jobs:
           EXE="$RUNNER_TEMP/executable/SLUS_210.65"
           OUT="$RUNNER_TEMP/vu-sections"
           mkdir -p "$OUT"
-          mipsel-linux-gnu-objcopy --dump-section .vutext="$OUT/vutext.bin" "$EXE"
-          objcopy --dump-section .DVP.ovlytab="$OUT/ovlytab.bin" "$EXE"
-          objcopy --dump-section .DVP.ovlystrtab="$OUT/ovlystrtab.bin" "$EXE"
-          : > "$OUT/overlay-index.txt"
-          while IFS= read -r section; do
-            case "$section" in
-              .DVP.overlay.*)
-                safe="$(printf '%s' "$section" | tr '/ ' '__')"
-                objcopy --dump-section "$section=$OUT/$safe.bin" "$EXE"
-                printf '%s %s\\n' "$section" "$(stat -c '%s' "$OUT/$safe.bin")" >> "$OUT/overlay-index.txt"
-                ;;
-            esac
-          done < <(readelf -SW "$EXE" | sed -n 's/^ *\\[[ 0-9]*\\] \\(\\.DVP\\.overlay\\.[^ ]*\\).*/\\1/p')
+          python3 - "$EXE" "$OUT" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          exe, out = Path(sys.argv[1]), Path(sys.argv[2])
+          data = exe.read_bytes()
+          if data[:6] != b"\\x7fELF\\x01\\x01":
+              raise SystemExit("Expected ELF32 little-endian PS2 executable")
+          header = struct.unpack_from("<16sHHIIIIIHHHHHH", data, 0)
+          shoff, shentsize, shnum, shstrndx = header[6], header[11], header[12], header[13]
+          sections = [struct.unpack_from("<IIIIIIIIII", data, shoff + i * shentsize) for i in range(shnum)]
+          names_section = sections[shstrndx]
+          names = data[names_section[4]:names_section[4] + names_section[5]]
+          index = []
+          for section in sections:
+              name_offset, section_type, flags, address, offset, size = section[:6]
+              end_name = names.find(b"\\0", name_offset)
+              name = names[name_offset:end_name].decode("ascii", "replace")
+              wanted = name == ".vutext" or name in (".DVP.ovlytab", ".DVP.ovlystrtab") or name.startswith(".DVP.overlay.")
+              if not wanted or section_type == 8:
+                  continue
+              if offset + size > len(data):
+                  raise SystemExit(f"Section {name} exceeds executable bounds")
+              filename = name.replace("/", "_") + ".bin"
+              (out / filename).write_bytes(data[offset:offset + size])
+              index.append((name, size, address, filename))
+          (out / "overlay-index.txt").write_text(
+              "\\n".join(f"{name} size={size} vma=0x{address:X} file={filename}" for name,size,address,filename in index) + "\\n",
+              encoding="utf-8")
+          print(f"Extracted {len(index)} VU/DVP sections.")
+          PY
+          cp "$OUT/.vutext.bin" "$OUT/vutext.bin"
+          cp "$OUT/.DVP.ovlytab.bin" "$OUT/ovlytab.bin"
+          cp "$OUT/.DVP.ovlystrtab.bin" "$OUT/ovlystrtab.bin"
           {
             echo "# PS2 VU executable sections"
             echo
