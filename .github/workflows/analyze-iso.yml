@@ -665,7 +665,8 @@ jobs:
                    f"- Texture entries: {report['entries']}",
                    f"- Successfully decoded: {report['decoded']}",
                    f"- Skipped: {len(report['skipped'])}",
-                   "- Decoder uses the PS2-specific embedded header offset `0x54`.", ""]
+                   "- Decoder uses the PS2-specific embedded header offset `0x54`.",
+                   "- PSMT8 pixel data is GS-unswizzled; PS2 alpha is expanded from 7-bit to 8-bit.", ""]
           if report.get("diagnostics"):
               lines.extend(["## Embedded header diagnostics", "",
                             "| Hash | Header offset | Hash matches | Name bytes | Width | Height | Format byte |",
@@ -679,9 +680,9 @@ jobs:
                   lines.append(f"| `{item['hash']}` | {item.get('header_offset')} | {item.get('header_hash_matches')} | `{name}` | {width} | {height} | 0x{fmt:02X} |")
           if report.get("textures"):
               lines.extend(["", "## Decoded textures", "",
-                            "| Name | Width | Height | Format |", "|---|---:|---:|---|"])
+                            "| Name | Width | Height | Source format | PS2 layout |", "|---|---:|---:|---|---|"])
               for item in report["textures"]:
-                  lines.append(f"| `{item.get('name', '')}` | {item.get('width', 0)} | {item.get('height', 0)} | {item.get('format', '')} |")
+                  lines.append(f"| `{item.get('name', '')}` | {item.get('width', 0)} | {item.get('height', 0)} | {item.get('source_format', '')} | {item.get('ps2_layout', '')} |")
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
               stream.write("\n".join(lines) + "\n")
           PY
