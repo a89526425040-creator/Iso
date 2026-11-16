@@ -476,8 +476,8 @@ jobs:
                   if result.returncode:
                       raise SystemExit(f"C++ reader failed for {path}: {result.stderr}")
                   match = re.search(
-                      r"chunks=(\\d+) containers=(\\d+) leaves=(\\d+) "
-                      r"padding_regions=(\\d+) padding_bytes=(\\d+)",
+                      r"chunks=(\d+) containers=(\d+) leaves=(\d+) "
+                      r"padding_regions=(\d+) padding_bytes=(\d+)",
                       result.stdout,
                   )
                   if not match:
@@ -512,7 +512,7 @@ jobs:
           if checked != 8:
               raise SystemExit(f"expected 8 vehicle resources, checked {checked}")
           with open("iso/cpp-chunk-reader-report.md", "w", encoding="utf-8") as stream:
-              stream.write("\\n".join(lines) + "\\n")
+              stream.write("\n".join(lines) + "\n")
           print(f"C++ and Python readers agreed on {checked} complete PS2 geometry files.")
           PY
 
