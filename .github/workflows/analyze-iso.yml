@@ -1,8 +1,6 @@
 name: Download and inspect PS2 ISO
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
