@@ -57,19 +57,91 @@ jobs:
             echo ' ```'
           } > iso/inspection-report.md
 
-      - name: Commit inspection report
+      - name: Validate ZDIR index against all four ZZDATA archives
+        run: |
+          set -euo pipefail
+          GAME_DIR="$RUNNER_TEMP/game-data"
+          mkdir -p "$GAME_DIR"
+          7z x -y -o"$GAME_DIR" "$RUNNER_TEMP/original.iso" \
+            "NFSUNDER/ZDIR.BIN" \
+            "NFSUNDER/ZZDATA0.BIN" \
+            "NFSUNDER/ZZDATA1.BIN" \
+            "NFSUNDER/ZZDATA2.BIN" \
+            "NFSUNDER/ZZDATA3.BIN"
+          test -s "$GAME_DIR/NFSUNDER/ZDIR.BIN"
+          for i in 0 1 2 3; do
+            test -s "$GAME_DIR/NFSUNDER/ZZDATA$i.BIN"
+          done
+
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/zdir_inspect.py" \
+            --output "$RUNNER_TEMP/zdir_inspect.py"
+
+          python3 "$RUNNER_TEMP/zdir_inspect.py" \
+            "$GAME_DIR/NFSUNDER/ZDIR.BIN" \
+            --archive "0=$GAME_DIR/NFSUNDER/ZZDATA0.BIN" \
+            --archive "1=$GAME_DIR/NFSUNDER/ZZDATA1.BIN" \
+            --archive "2=$GAME_DIR/NFSUNDER/ZZDATA2.BIN" \
+            --archive "3=$GAME_DIR/NFSUNDER/ZZDATA3.BIN" \
+            --output "$RUNNER_TEMP/zdir-summary.json"
+
+          python3 - "$RUNNER_TEMP/zdir-summary.json" iso/zdir-report.md <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as f:
+              data = json.load(f)
+
+          lines = [
+              "# ZDIR / ZZDATA validation report",
+              "",
+              f"- Index size: {data['index_bytes']:,} bytes",
+              f"- Record size: {data['record_size']} bytes",
+              f"- Records: {data['record_count']:,}",
+              f"- Offset unit: {data['sector_size']:,}-byte sectors",
+              "- Archive boundary validation: performed against all four extracted archives",
+              f"- Validation problems: {data['problem_count']}",
+              "",
+              "## Archive distribution",
+              "",
+              "| Archive | Actual size (bytes) | Entries | Declared payload bytes | Highest referenced end offset |",
+              "|---|---:|---:|---:|---:|",
+          ]
+          for aid, item in data["archives"].items():
+              lines.append(
+                  f"| {item['file']} | {item['archive_bytes']:,} | "
+                  f"{item['entry_count']:,} | {item['declared_payload_bytes']:,} | "
+                  f"{item['max_end_offset']:,} |"
+              )
+          if data["problems"]:
+              lines.extend(["", "## First validation problems", ""])
+              lines.extend(f"- {problem}" for problem in data["problems"])
+          else:
+              lines.extend(["", "All index entries fit within their referenced archive files."])
+          lines.extend([
+              "",
+              "Only index metadata was committed. The ISO, ZDIR binary, and ZZDATA payloads were temporary runner files.",
+              "",
+          ])
+          with open(sys.argv[2], "w", encoding="utf-8") as f:
+              f.write("\n".join(lines))
+          PY
+
+      - name: Commit inspection reports
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
-            git commit -m "Add ISO inspection report"
+            git commit -m "Add ZDIR and ZZDATA validation report"
             git push
           fi
 
-      - name: Remove downloaded ISO
+      - name: Remove downloaded ISO and extracted data
         if: always()
-        run: rm -f "$RUNNER_TEMP/original.iso"
+        run: |
+          rm -f "$RUNNER_TEMP/original.iso" "$RUNNER_TEMP/zdir_inspect.py" "$RUNNER_TEMP/zdir-summary.json"
+          rm -rf "$RUNNER_TEMP/game-data"
