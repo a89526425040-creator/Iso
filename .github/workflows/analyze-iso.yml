@@ -633,118 +633,6 @@ jobs:
               stream.write("\n".join(sample_lines) + "\n")
           PY
 
-      - name: Build experimental VIF point-cloud preview
-        run: |
-          set -euo pipefail
-          python3 - "$RUNNER_TEMP/vif-probe.json" "$RUNNER_TEMP/point-cloud-preview" <<'PY'
-          import json
-          import math
-          import struct
-          import sys
-          from pathlib import Path
-
-          source, output = Path(sys.argv[1]), Path(sys.argv[2])
-          output.mkdir(parents=True, exist_ok=True)
-          report = json.loads(source.read_text(encoding="utf-8"))
-          datasets = []
-          all_points = []
-          for resource in report["resources"]:
-              for index, stream in enumerate(resource["streams"]):
-                  points = []
-                  for record in stream.get("unpack_records", []):
-                      if record.get("format") != "UNPACK_3x32" or record.get("vu_address") != 2:
-                          continue
-                      values = record.get("all_values", [])
-                      for offset in range(0, len(values) - 2, 3):
-                          point = [
-                              struct.unpack("<f", struct.pack("<I", value & 0xFFFFFFFF))[0]
-                              for value in values[offset:offset + 3]
-                          ]
-                          if all(math.isfinite(value) and abs(value) < 1000 for value in point):
-                              points.append(point)
-                  if points:
-                      label = f"{resource['path']} / submesh {index}"
-                      datasets.append({"label": label, "points": points})
-                      all_points.extend((point, len(datasets) - 1) for point in points)
-
-          if not all_points:
-              raise SystemExit("No finite VIF UNPACK_3x32 samples found at VU address 0x002.")
-
-          ply = [
-              "ply", "format ascii 1.0",
-              f"element vertex {len(all_points)}",
-              "property float x", "property float y", "property float z",
-              "property uchar red", "property uchar green", "property uchar blue",
-              "end_header",
-          ]
-          palette = [(70, 160, 255), (255, 150, 70), (90, 210, 150),
-                     (200, 120, 255), (255, 210, 80), (100, 220, 220),
-                     (240, 100, 130), (180, 190, 210), (150, 230, 100)]
-          for point, group in all_points:
-              red, green, blue = palette[group % len(palette)]
-              ply.append(f"{point[0]:.7g} {point[1]:.7g} {point[2]:.7g} {red} {green} {blue}")
-          (output / "candidate-positions.ply").write_text("\n".join(ply) + "\n", encoding="ascii")
-
-          html = r"""<!doctype html>
-          <html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-          <title>PS2 VIF — экспериментальный просмотр точек</title>
-          <style>
-          *{box-sizing:border-box}body{margin:0;background:#10151d;color:#e7edf5;font:14px system-ui,sans-serif}
-          header{padding:14px 16px;background:#1b2532;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-          select{background:#263548;color:white;border:1px solid #53657a;padding:8px;border-radius:8px;max-width:100%}
-          #view{display:block;width:100vw;height:calc(100vh - 120px);touch-action:none}
-          #note{padding:10px 16px;color:#b8c6d8;font-size:12px;line-height:1.5}
-          #count{margin-left:auto;color:#b8c6d8}
-          </style>
-          <header><b>Экспериментальный облачный просмотр</b><select id="dataset"></select><span id="count"></span></header>
-          <canvas id="view"></canvas>
-          <div id="note">Показаны значения VIF UNPACK_3x32 из VU-адреса 0x002, интерпретированные как float XYZ. Это гипотеза, а не подтверждённые координаты вершин. Треугольники, индексы, материалы и микропрограмма VU ещё не восстановлены. Перетаскивай для вращения, колесо — масштаб.</div>
-          <script>
-          const datasets=__DATA__;
-          const select=document.getElementById('dataset'),canvas=document.getElementById('view'),ctx=canvas.getContext('2d'),count=document.getElementById('count');
-          datasets.forEach((d,i)=>{const o=document.createElement('option');o.value=i;o.textContent=d.label;select.appendChild(o)});
-          let yaw=.65,pitch=.35,zoom=1,drag=null;
-          function draw(){
-            const w=canvas.clientWidth,h=canvas.clientHeight,dpr=window.devicePixelRatio||1;
-            canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
-            ctx.fillStyle='#10151d';ctx.fillRect(0,0,w,h);
-            const data=datasets[Number(select.value)||0],pts=data.points;
-            if(!pts||!pts.length){count.textContent='Нет точек';return}
-            const center=[0,0,0];pts.forEach(p=>{center[0]+=p[0];center[1]+=p[1];center[2]+=p[2]});center.forEach((v,i)=>center[i]=v/pts.length);
-            let extent=0;pts.forEach(p=>p.forEach((v,i)=>extent=Math.max(extent,Math.abs(v-center[i]))));extent=extent||1;
-            const scale=Math.min(w,h)*.40/extent*zoom,cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
-            const projected=pts.map(p=>{const x=p[0]-center[0],y=p[1]-center[1],z=p[2]-center[2];const xx=x*cy-z*sy,zz=x*sy+z*cy,yy=y*cp-zz*sp,depth=y*sp+zz*cp;return{x:w/2+xx*scale,y:h/2-yy*scale,depth}});
-            projected.sort((a,b)=>a.depth-b.depth);
-            ctx.strokeStyle='#35485c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(w/2-50,h/2);ctx.lineTo(w/2+50,h/2);ctx.moveTo(w/2,h/2-50);ctx.lineTo(w/2,h/2+50);ctx.stroke();
-            projected.forEach(p=>{const r=Math.max(2,Math.min(5,3.2+ p.depth*.15));ctx.fillStyle='#69b7ff';ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill()});
-            count.textContent=pts.length+' точек';
-          }
-          select.addEventListener('change',draw);
-          canvas.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId)});
-          canvas.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag[0],dy=e.clientY-drag[1];yaw+=dx*.008;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*.008));drag=[e.clientX,e.clientY];draw()});
-          canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);
-          canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.2,Math.min(8,zoom*(e.deltaY<0?1.1:.9)));draw()},{passive:false});
-          window.addEventListener('resize',draw);draw();
-          </script></html>"""
-          html = html.replace("__DATA__", json.dumps(datasets, ensure_ascii=False, separators=(",", ":")))
-          (output / "preview.html").write_text(html, encoding="utf-8")
-          (output / "README.txt").write_text(
-              "Откройте preview.html в браузере. PLY можно импортировать в Blender/MeshLab. "
-              "Это экспериментальное облако значений UNPACK_3x32 по адресу VU 0x002; "
-              "семантика координат и топология пока не подтверждены.\n",
-              encoding="utf-8",
-          )
-          print(f"Created {len(datasets)} point sets and {len(all_points)} candidate points.")
-          PY
-
-      - name: Upload experimental VIF point-cloud preview
-        uses: actions/upload-artifact@v4
-        with:
-          name: ps2-vif-point-cloud-preview
-          path: ${{ runner.temp }}/point-cloud-preview/
-          if-no-files-found: error
-          retention-days: 7
-
       - name: Cross-check C++ chunk reader against PS2 resources
         run: |
           set -euo pipefail
@@ -866,7 +754,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/cpp-chunk-reader-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/vu-section-analysis-report.md iso/texture-probe-report.md iso/cpp-chunk-reader-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
