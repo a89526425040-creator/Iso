@@ -27,3 +27,5 @@ Run 2026-11-16: persist VU and texture analysis reports; no experimental point-c
 Re-run image header validation for all car textures and persist readable reports.
 
 Disassemble VU programs embedded in SLUS_210.65 .vutext.
+
+Retry ISO analysis with HTTP/1.1 range-resumable download and VU disassembly.
