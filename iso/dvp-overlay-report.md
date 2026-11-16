@@ -8,27 +8,38 @@
 ## Program 463841659 at VU 0x0000
 
 - Chunks: 1
-- Code bytes / instruction pairs: 16 / 2
+- Allocated bytes / file-backed bytes: 16 / 16
 - Chunk addresses contiguous: True
+
+| Chunk | EE address | VU address | Allocated bytes | ELF section type | Storage |
+|---:|---:|---:|---:|---:|---|
+| 0 | 0x004555E0 | 0x0000 | 16 | 2147480609 | file-backed |
+
+- File-backed code bytes / instruction pairs: 16 / 2
 - E-bit instructions: 0
 - XGKICK instructions: 0
 - Reserved/unknown instructions: 0
 
-```asm
+Assembly sample:
 0000  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 0008  ADDx. vf00, vf00, vf00.x                 | NOP                                          
-```
 
 ## Program 463841787 at VU 0x0000
 
 - Chunks: 1
-- Code bytes / instruction pairs: 2048 / 256
+- Allocated bytes / file-backed bytes: 2048 / 2048
 - Chunk addresses contiguous: True
+
+| Chunk | EE address | VU address | Allocated bytes | ELF section type | Storage |
+|---:|---:|---:|---:|---:|---|
+| 0 | 0x00456610 | 0x0000 | 2048 | 2147480609 | file-backed |
+
+- File-backed code bytes / instruction pairs: 2048 / 256
 - E-bit instructions: 0
 - XGKICK instructions: 0
 - Reserved/unknown instructions: 0
 
-```asm
+Assembly sample:
 0000  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 0008  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 0010  ADDx. vf00, vf00, vf00.x                 | NOP                                          
@@ -285,18 +296,28 @@
 07e8  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 07f0  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 07f8  ADDx. vf00, vf00, vf00.x                 | NOP                                          
-```
 
 ## Program 903966091 at VU 0x0800
 
 - Chunks: 6
-- Code bytes / instruction pairs: 12288 / 1536
+- Allocated bytes / file-backed bytes: 12288 / 12288
 - Chunk addresses contiguous: True
+
+| Chunk | EE address | VU address | Allocated bytes | ELF section type | Storage |
+|---:|---:|---:|---:|---:|---|
+| 1 | 0x00456E18 | 0x0800 | 2048 | 2147480609 | file-backed |
+| 2 | 0x00457620 | 0x1000 | 2048 | 2147480609 | file-backed |
+| 3 | 0x00457E28 | 0x1800 | 2048 | 2147480609 | file-backed |
+| 4 | 0x00458630 | 0x2000 | 2048 | 2147480609 | file-backed |
+| 5 | 0x00458E38 | 0x2800 | 2048 | 2147480609 | file-backed |
+| 6 | 0x00459640 | 0x3000 | 2048 | 2147480609 | file-backed |
+
+- File-backed code bytes / instruction pairs: 12288 / 1536
 - E-bit instructions: 0
 - XGKICK instructions: 0
 - Reserved/unknown instructions: 0
 
-```asm
+Assembly sample:
 0800  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 0808  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 0810  ADDx. vf00, vf00, vf00.x                 | NOP                                          
@@ -329,18 +350,23 @@
 08e8  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 08f0  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 08f8  ADDx. vf00, vf00, vf00.x                 | NOP                                          
-```
 
 ## Program 903972827 at VU 0x3800
 
 - Chunks: 1
-- Code bytes / instruction pairs: 1632 / 204
+- Allocated bytes / file-backed bytes: 1632 / 1632
 - Chunk addresses contiguous: True
+
+| Chunk | EE address | VU address | Allocated bytes | ELF section type | Storage |
+|---:|---:|---:|---:|---:|---|
+| 7 | 0x00459E48 | 0x3800 | 1632 | 2147480609 | file-backed |
+
+- File-backed code bytes / instruction pairs: 1632 / 204
 - E-bit instructions: 0
 - XGKICK instructions: 0
 - Reserved/unknown instructions: 0
 
-```asm
+Assembly sample:
 3800  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 3808  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 3810  ADDx. vf00, vf00, vf00.x                 | NOP                                          
@@ -373,5 +399,4 @@
 38e8  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 38f0  ADDx. vf00, vf00, vf00.x                 | NOP                                          
 38f8  ADDx. vf00, vf00, vf00.x                 | NOP                                          
-```
 
