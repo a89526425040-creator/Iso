@@ -127,12 +127,56 @@ jobs:
               f.write("\n".join(lines))
           PY
 
+      - name: Build resource filename catalogue
+        run: |
+          set -euo pipefail
+          GAME_DIR="$RUNNER_TEMP/game-data/NFSUNDER"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/Ekey/NFS.BIN.Tool/main/NFS.Unpacker/NFS.Unpacker/Projects/FileNames.list" \
+            --output "$RUNNER_TEMP/FileNames.list"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/zdir_inspect.py" \
+            --output "$RUNNER_TEMP/zdir_inspect.py"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/zdir_catalog.py" \
+            --output "$RUNNER_TEMP/zdir_catalog.py"
+
+          python3 "$RUNNER_TEMP/zdir_catalog.py" \
+            "$GAME_DIR/ZDIR.BIN" \
+            --names "$RUNNER_TEMP/FileNames.list" \
+            --csv iso/resource-catalogue.csv \
+            --summary "$RUNNER_TEMP/catalogue-summary.json"
+
+          python3 - "$RUNNER_TEMP/catalogue-summary.json" iso/resource-catalogue-report.md <<'PY'
+          import json
+          import sys
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              data = json.load(stream)
+          lines = [
+              "# Resource filename catalogue",
+              "",
+              f"- ZDIR entries: {data['entry_count']:,}",
+              f"- Candidate paths in external dictionary: {data['name_list_lines']:,}",
+              f"- Resolved names: {data['resolved']:,}",
+              f"- Unresolved hashes: {data['unresolved']:,}",
+              f"- Hash collisions: {data['collisions']:,}",
+              "",
+              "Names are candidate matches from the external NFS.BIN.Tool dictionary. "
+              "Unresolved and colliding hashes are retained explicitly; no guessed names are assigned.",
+              "",
+              "Only index metadata is committed. No ISO or ZZDATA payload bytes are included.",
+              "",
+          ]
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              stream.write("\\n".join(lines))
+          PY
+
       - name: Commit inspection reports
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
