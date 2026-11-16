@@ -12,3 +12,4 @@ Preserve 0x11 command bytes inside PS2 VIF streams.
 Parse VIF streams without stripping embedded 0x11 command bytes.
 Publish validated PS2 VIF stream command report.
 Publish VIF report after correcting report staging list.
+Run corrected VIF report staging and publish decoded UNPACK samples.
