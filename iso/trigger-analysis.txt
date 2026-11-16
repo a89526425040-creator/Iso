@@ -21,3 +21,5 @@ Re-run VU and DVP overlay extraction with MIPS-aware objcopy and inspect all car
 Re-run ELF section parsing using a bounds-checked Python ELF32 reader; inspect all VU overlays and car textures.
 
 ELF parser correction 2026-11-16T15:55:56.954Z
+
+Run 2026-11-16: persist VU and texture analysis reports; no experimental point-cloud preview.
