@@ -271,12 +271,76 @@ jobs:
               stream.write("\\n".join(lines) + "\\n")
           PY
 
+      - name: Validate PS2 vehicle geometry chunk trees
+        run: |
+          set -euo pipefail
+          GAME_DIR="$RUNNER_TEMP/game-data/NFSUNDER"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_chunk_scan.py" \
+            --output "$RUNNER_TEMP/ps2_chunk_scan.py"
+          python3 "$RUNNER_TEMP/ps2_chunk_scan.py" \
+            iso/resource-catalogue.csv \
+            --archive "0=$GAME_DIR/ZZDATA0.BIN" \
+            --archive "1=$GAME_DIR/ZZDATA1.BIN" \
+            --archive "2=$GAME_DIR/ZZDATA2.BIN" \
+            --archive "3=$GAME_DIR/ZZDATA3.BIN" \
+            --output "$RUNNER_TEMP/vehicle-chunk-trees.json" \
+            --limit 8
+          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md <<'PY'
+          import json
+          import sys
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              resources = json.load(stream)["resources"]
+          lines = [
+              "# PS2 vehicle geometry chunk-tree validation",
+              "",
+              f"- Complete GEOMETRY.BIN files scanned: {len(resources)}",
+              "- Scanner validates every chunk against its parent boundary and recurses only into IDs with top nibble 0x8.",
+              "- Only chunk IDs, sizes, offsets and counts are committed; no payload bytes are exported.",
+              "",
+          ]
+          for item in resources:
+              scan = item["scan"]
+              lines.extend([
+                  f"## {item['path']}",
+                  "",
+                  f"- File size: {scan['file_size']:,} bytes",
+                  f"- Chunks: {scan['chunk_count']} ({scan['container_count']} containers, {scan['leaf_count']} leaves)",
+                  f"- Padding regions / bytes: {scan['padding_regions']} / {scan['padding_bytes']:,}",
+                  f"- Boundary errors: {len(scan['errors'])}",
+                  "",
+                  "| Chunk ID | Count |",
+                  "|---|---:|",
+              ])
+              for chunk_id, count in scan["id_counts"].items():
+                  lines.append(f"| {chunk_id} | {count} |")
+              lines.extend(["", "First-level tree (first 24 nodes):", ""])
+              def render(nodes, depth=0):
+                  for node in nodes:
+                      if len(rendered[0]) >= 24:
+                          return
+                      rendered[0] += 1
+                      lines.append(
+                          f"- {'  ' * depth}0x{node['offset']:X}: {node['id']} "
+                          f"size={node['size']} ({node['kind']})"
+                      )
+                      render(node["children"], depth + 1)
+              rendered = [0]
+              render(scan["tree"])
+              if scan["errors"]:
+                  lines.extend(["", "Errors:"])
+                  lines.extend(f"- {error}" for error in scan["errors"])
+              lines.append("")
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              stream.write("\\n".join(lines) + "\\n")
+          PY
+
       - name: Commit inspection reports
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
