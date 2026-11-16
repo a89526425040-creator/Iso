@@ -7,3 +7,4 @@ Probe PS2 geometry leaf payload structure for vertices and indices.
 Run C++/Python cross-check and commit mesh numeric report.
 Decode VIF commands and vector unpack payloads in PS2 mesh leaves.
 Diagnose VIF stream alignment at first unsupported word.
+Correct VIF packed-vector input sizing and verify full streams.
