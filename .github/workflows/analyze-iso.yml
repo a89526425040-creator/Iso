@@ -127,7 +127,7 @@ jobs:
               (out / filename).write_bytes(data[offset:offset + size])
               index.append((name, size, address, filename))
           (out / "overlay-index.txt").write_text(
-              "\n".join(f"{name} size={size} vma=0x{address:X} file={filename}" for name,size,address,filename in index) + "\\n",
+              "\n".join(f"{name} size={size} vma=0x{address:X} file={filename}" for name,size,address,filename in index) + "\n",
               encoding="utf-8")
           print(f"Extracted {len(index)} VU/DVP sections.")
           PY
