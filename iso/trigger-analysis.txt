@@ -39,3 +39,5 @@ Decode and publish the original PS2 RX7 texture pack as PNG files for model reco
 Resolve DVP overlay VU program addresses and capture PS2 TPK decompressed-header diagnostics.
 
 Retry DVP overlay extraction with ELF string-table fallback and TPK diagnostics.
+
+Run corrected DVP extraction and execute RX7 VIF geometry through PS2 VU1 interpreter; capture GIF packets.
