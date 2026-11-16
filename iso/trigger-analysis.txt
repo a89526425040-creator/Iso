@@ -1,1 +1,2 @@
 Run PS2 resource prefix structure analysis.
+Repeat analysis with full geometry chunk validation.
