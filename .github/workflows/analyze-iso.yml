@@ -287,7 +287,7 @@ jobs:
             --output "$RUNNER_TEMP/vehicle-chunk-trees.json" \
             --limit 8 \
             --min-size 1000000
-          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/cpp-chunk-reader-report.md iso/vif-stream-probe-report.md iso/vif-stream-probe-report.md <<'PY'
+          python3 - "$RUNNER_TEMP/vehicle-chunk-trees.json" iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/cpp-chunk-reader-report.md iso/vif-stream-probe-report.md iso/vif-stream-probe-report.md <<'PY'
           import json
           import sys
           with open(sys.argv[1], encoding="utf-8") as stream:
@@ -467,6 +467,38 @@ jobs:
                   lines.append("")
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
               stream.write("\n".join(lines) + "\n")
+
+          sample_lines = [
+              "# PS2 VIF UNPACK numeric samples",
+              "",
+              "- Values below are decoded from VIF UNPACK payloads using the command's component width and USN signedness flag.",
+              "- 32-bit payloads show both integer and IEEE-754 float interpretations; neither is assigned a semantic name yet.",
+              "- VU destination addresses are included to support later microprogram analysis.",
+              "",
+          ]
+          for item in resources:
+              sample_lines.extend([f"## {item['path']}", ""])
+              for index, stream in enumerate(item["streams"]):
+                  sample_lines.extend([
+                      f"### Stream {index} at 0x{stream['chunk_offset']:X}",
+                      "",
+                      "| Stream offset | Format | Vectors | VU address | USN | Min | Max | Sample values | Float candidates |",
+                      "|---:|---|---:|---:|---:|---:|---:|---|---|",
+                  ])
+                  for record in stream.get("unpack_records", []):
+                      sample_lines.append(
+                          f"| 0x{record['offset']:X} | {record['format']} | "
+                          f"{record['vectors']} | 0x{record['vu_address']:03X} | "
+                          f"{int(record['unsigned'])} | {record['min_value']} | "
+                          f"{record['max_value']} | {record['sample_values']} | "
+                          f"{record.get('sample_f32', [])} |"
+                      )
+                  sample_lines.append("")
+          sample_path = sys.argv[2].replace(
+              "vif-stream-probe-report.md", "vif-unpack-samples-report.md"
+          )
+          with open(sample_path, "w", encoding="utf-8") as stream:
+              stream.write("\n".join(sample_lines) + "\n")
           PY
 
       - name: Cross-check C++ chunk reader against PS2 resources
