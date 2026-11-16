@@ -45,3 +45,5 @@ Run corrected DVP extraction and execute RX7 VIF geometry through PS2 VU1 interp
 Run PS2 DVP overlay extraction and replay RX7 geometry with all support VU programs loaded.
 
 Run with commit-pinned Nfs scripts, decode PS2 RX7 textures, and replay all DVP support programs through VU1.
+
+Export .vutext code and replay it at MSCAL 0x100 with VIF TOPS/BASE offsets; use PS2-specific TPK header.
