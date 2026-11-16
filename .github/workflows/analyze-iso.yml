@@ -604,15 +604,63 @@ jobs:
               target.write(payload)
           print(f"Extracted RX7 texture pack: {len(payload)} bytes")
           PY
-          curl --fail --location --retry 3 \
-            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2-tpk-exporter/Cargo.toml?v=$GITHUB_SHA" \
-            --output "$RUNNER_TEMP/tpk-exporter/Cargo.toml"
+          git init "$RUNNER_TEMP/PryHUB"
+          git -C "$RUNNER_TEMP/PryHUB" remote add origin https://github.com/bdrtr/PryHUB.git
+          git -C "$RUNNER_TEMP/PryHUB" fetch --depth 1 origin 861753d58ef065bc0944ca3241dad8a0dea7bfde
+          git -C "$RUNNER_TEMP/PryHUB" checkout FETCH_HEAD
+          python3 - "$RUNNER_TEMP/PryHUB/crates/gizmo-nfs/src/texture/decode.rs" <<'PY'
+          import pathlib, sys
+          path = pathlib.Path(sys.argv[1])
+          source = path.read_text(encoding="utf-8")
+          old = "const HEADER_INTO: usize = 0x64 + 0x24;"
+          if old not in source:
+              raise SystemExit("upstream TPK header constant changed; review the PS2 offset patch")
+          path.write_text(source.replace(old, "const HEADER_INTO: usize = 0x54;", 1), encoding="utf-8")
+          print("Applied PS2 TPK embedded-header offset 0x54")
+          PY
+          cat > "$RUNNER_TEMP/tpk-exporter/Cargo.toml" <<EOF
+          [package]
+          name = "ps2-tpk-exporter"
+          version = "0.1.0"
+          edition = "2021"
+          [dependencies]
+          gizmo-nfs = { path = "$RUNNER_TEMP/PryHUB/crates/gizmo-nfs", features = ["png"] }
+          EOF
           curl --fail --location --retry 3 \
             "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2-tpk-exporter/src/main.rs?v=$GITHUB_SHA" \
             --output "$RUNNER_TEMP/tpk-exporter/src/main.rs"
-          cargo run --manifest-path "$RUNNER_TEMP/tpk-exporter/Cargo.toml" --release -- \
+          CARGO_TARGET_DIR="$RUNNER_TEMP/cargo-target" cargo run --manifest-path "$RUNNER_TEMP/tpk-exporter/Cargo.toml" --release -- \
             "$RUNNER_TEMP/RX7-TEXTURES.BIN" "$RUNNER_TEMP/rx7-textures"
           test -s "$RUNNER_TEMP/rx7-textures/texture-manifest.json"
+          python3 - "$RUNNER_TEMP/rx7-textures/texture-manifest.json" iso/texture-export-report.md <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              report = json.load(stream)
+          lines = ["# RX7 PS2 texture export", "",
+                   f"- TPK bytes: {report['input_bytes']:,}",
+                   f"- Texture entries: {report['entries']}",
+                   f"- Successfully decoded: {report['decoded']}",
+                   f"- Skipped: {len(report['skipped'])}",
+                   "- Decoder uses the PS2-specific embedded header offset `0x54`.", ""]
+          if report.get("diagnostics"):
+              lines.extend(["## Embedded header diagnostics", "",
+                            "| Hash | Header offset | Hash matches | Name bytes | Width | Height | Format byte |",
+                            "|---|---:|---|---|---:|---:|---:|"])
+              for item in report["diagnostics"]:
+                  header = bytes.fromhex(item.get("header_hex", ""))
+                  width = int.from_bytes(header[32:34], "little") if len(header) >= 39 else 0
+                  height = int.from_bytes(header[34:36], "little") if len(header) >= 39 else 0
+                  fmt = header[38] if len(header) >= 39 else 0
+                  name = bytes.fromhex(item.get("name_hex", "")).split(b"\\0", 1)[0].decode("ascii", "replace")
+                  lines.append(f"| `{item['hash']}` | {item.get('header_offset')} | {item.get('header_hash_matches')} | `{name}` | {width} | {height} | 0x{fmt:02X} |")
+          if report.get("textures"):
+              lines.extend(["", "## Decoded textures", "",
+                            "| Name | Width | Height | Format |", "|---|---:|---:|---|"])
+              for item in report["textures"]:
+                  lines.append(f"| `{item.get('name', '')}` | {item.get('width', 0)} | {item.get('height', 0)} | {item.get('format', '')} |")
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              stream.write("\n".join(lines) + "\n")
+          PY
       - name: Upload decoded RX7 textures
         uses: actions/upload-artifact@v4
         with:
@@ -1040,7 +1088,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/vu-section-analysis-report.md iso/vu-program-disassembly-report.md iso/dvp-overlay-report.md iso/vu-replay-report.md iso/texture-probe-report.md iso/tpk-structure-report.md iso/cpp-chunk-reader-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/vu-section-analysis-report.md iso/vu-program-disassembly-report.md iso/dvp-overlay-report.md iso/vu-replay-report.md iso/texture-probe-report.md iso/texture-export-report.md iso/tpk-structure-report.md iso/cpp-chunk-reader-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
