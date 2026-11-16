@@ -2,6 +2,9 @@ name: Download and inspect PS2 ISO
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'iso/trigger-analysis.txt'
 
 permissions:
   contents: write
@@ -210,12 +213,70 @@ jobs:
               stream.write("\n".join(lines))
           PY
 
+      - name: Analyze aligned words and strings in PS2 resource prefixes
+        run: |
+          set -euo pipefail
+          GAME_DIR="$RUNNER_TEMP/game-data/NFSUNDER"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_resource_probe.py" \
+            --output "$RUNNER_TEMP/ps2_resource_probe.py"
+          python3 "$RUNNER_TEMP/ps2_resource_probe.py" \
+            iso/resource-catalogue.csv \
+            --archive "0=$GAME_DIR/ZZDATA0.BIN" \
+            --archive "1=$GAME_DIR/ZZDATA1.BIN" \
+            --archive "2=$GAME_DIR/ZZDATA2.BIN" \
+            --archive "3=$GAME_DIR/ZZDATA3.BIN" \
+            --output "$RUNNER_TEMP/resource-structure.json" \
+            --limit 16 \
+            --sample-size 256
+          python3 - "$RUNNER_TEMP/resource-structure.json" iso/resource-structure-report.md <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              resources = json.load(stream)["resources"]
+          lines = [
+              "# PS2 resource prefix structure probe",
+              "",
+              f"- Resources inspected: {len(resources)}",
+              "- Prefix limit: 256 bytes per resource",
+              "- Output contains decoded 32-bit little-endian words and printable strings only; raw payloads are not committed.",
+              "",
+          ]
+          for item in resources:
+              lines.extend([
+                  f"## {item['path']}",
+                  "",
+                  f"- File size: {item['file_size']:,} bytes",
+                  f"- Archive / byte offset: {item['archive_id']} / {item['offset']:,}",
+                  f"- Sample SHA-256: {item['sample_sha256']}",
+                  "",
+                  "| Offset | u32 little-endian | Decimal |",
+                  "|---:|---:|---:|",
+              ])
+              for word in item["words_le_u32"][:16]:
+                  lines.append(
+                      f"| 0x{word['offset']:04X} | {word['hex']} | {word['u32']} |"
+                  )
+              lines.extend(["", "Printable strings:"])
+              if item["ascii_strings"]:
+                  lines.extend(
+                      f"- 0x{entry['offset']:04X}: {entry['text']}"
+                      for entry in item["ascii_strings"]
+                  )
+              else:
+                  lines.append("- None in sampled prefix")
+              lines.append("")
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              stream.write("\\n".join(lines) + "\\n")
+          PY
+
       - name: Commit inspection reports
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
