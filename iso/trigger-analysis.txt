@@ -10,3 +10,4 @@ Diagnose VIF stream alignment at first unsupported word.
 Correct VIF packed-vector input sizing and verify full streams.
 Preserve 0x11 command bytes inside PS2 VIF streams.
 Parse VIF streams without stripping embedded 0x11 command bytes.
+Publish validated PS2 VIF stream command report.
