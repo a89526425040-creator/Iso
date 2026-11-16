@@ -403,7 +403,7 @@ jobs:
                   lines.append(f"| {node['id']} | 0x{node['offset']:X} | {node['size']} | {node['kind']} |")
               lines.append("")
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
-              stream.write("\\n".join(lines) + "\\n")
+              stream.write("\n".join(lines) + "\\n")
           PY
       - name: Validate PS2 vehicle geometry chunk trees
         run: |
