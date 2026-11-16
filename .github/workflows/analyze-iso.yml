@@ -223,6 +223,55 @@ jobs:
           print(f"Disassembled {len(programs)} VU microprogram blocks.")
           PY
 
+      - name: Resolve DVP overlays and inspect all PS2 VU programs
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vu-overlays"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/a89526425040-creator/Nfs/main/tools/ps2_dvp_overlay_probe.py" \
+            --output "$RUNNER_TEMP/ps2_dvp_overlay_probe.py"
+          python3 "$RUNNER_TEMP/ps2_dvp_overlay_probe.py" \
+            "$RUNNER_TEMP/executable/SLUS_210.65" \
+            --out-dir "$RUNNER_TEMP/vu-overlays" \
+            --json "$RUNNER_TEMP/dvp-overlays.json"
+          python3 - "$RUNNER_TEMP/dvp-overlays.json" "$RUNNER_TEMP/vu-overlays" "$RUNNER_TEMP/vu-tools" iso/dvp-overlay-report.md <<'PY'
+          import json, pathlib, struct, sys
+          report_path, binary_dir, tool_dir, output = map(pathlib.Path, sys.argv[1:])
+          sys.path.insert(0, str(tool_dir))
+          import vudis
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          lines = ["# PS2 DVP overlay microprograms", "",
+                   f"- DVP table entries: {report['table_entries']}",
+                   f"- Grouped overlay programs: {len(report['programs'])}",
+                   f"- Table errors: {len(report['errors'])}",
+                   "- Overlay payloads are analysed in the runner and are not committed.", ""]
+          for error in report["errors"]:
+              lines.append(f"- ERROR: {error}")
+          for program in report["programs"]:
+              raw = (binary_dir / program["file"]).read_bytes()
+              if len(raw) % 8:
+                  lines.append(f"## Program {program['program_id']} — malformed size {len(raw)}")
+                  continue
+              pairs = len(raw) // 8
+              ebit = xgkick = reserved = 0
+              for pos in range(0, len(raw), 8):
+                  lower, upper = struct.unpack_from("<II", raw, pos)
+                  ebit += bool(upper & (1 << 30))
+              base = bytes(program["vu_start"]) + raw
+              disasm = vudis.disassemble(base, program["vu_start"], program["vu_start"] + len(raw), False)
+              xgkick = sum("XGKICK" in line for line in disasm)
+              reserved = sum("reserved" in line.lower() for line in disasm)
+              lines.extend([f"## Program {program['program_id']} at VU 0x{program['vu_start']:04X}", "",
+                            f"- Chunks: {program['chunk_count']}", f"- Code bytes / instruction pairs: {len(raw)} / {pairs}",
+                            f"- Chunk addresses contiguous: {program['contiguous']}",
+                            f"- E-bit instructions: {ebit}", f"- XGKICK instructions: {xgkick}",
+                            f"- Reserved/unknown instructions: {reserved}", ""])
+              interesting = [line for line in disasm if "XGKICK" in line or " E" in line or "reserved" in line.lower()]
+              sample = disasm if program["vu_start"] == 0 and len(raw) <= 0x800 else (disasm[:32] + interesting[:40])
+              lines.extend(["```asm", *sample, "```", ""])
+          output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
       - name: Validate ZDIR index against all four ZZDATA archives
         run: |
           set -euo pipefail
@@ -920,7 +969,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/vu-section-analysis-report.md iso/vu-program-disassembly-report.md iso/texture-probe-report.md iso/tpk-structure-report.md iso/cpp-chunk-reader-report.md
+          git add iso/sha256.txt iso/inspection-report.md iso/zdir-report.md iso/resource-catalogue.csv iso/resource-catalogue-report.md iso/resource-probe.csv iso/resource-probe-report.md iso/resource-structure-report.md iso/vehicle-chunk-tree-report.md iso/mesh-leaf-probe-report.md iso/vif-stream-probe-report.md iso/vif-unpack-samples-report.md iso/executable-analysis-report.md iso/vu-section-analysis-report.md iso/vu-program-disassembly-report.md iso/dvp-overlay-report.md iso/texture-probe-report.md iso/tpk-structure-report.md iso/cpp-chunk-reader-report.md
           if git diff --cached --quiet; then
             echo "No report changes to commit."
           else
