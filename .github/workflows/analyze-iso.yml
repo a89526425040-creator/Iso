@@ -568,10 +568,10 @@ jobs:
               for chunk in item.get("top_level", []):
                   lines.append(f"| {chunk['id']} | 0x{chunk['offset']:X} | {chunk['size']:,} |")
               lines.extend(["", "Texture stream entries:", "",
-                            "| Name hash | Blob offset | Compressed | Uncompressed | Flags | Blob |",
+                            "| Name hash | Blob offset | Compressed | Uncompressed | Descriptor word 4 | Descriptor word 5 | Blob |",
                             "|---|---:|---:|---:|---:|---|"])
               for entry in item.get("blob_checks", []):
-                  lines.append(f"| `{entry['name_hash']}` | 0x{entry['blob_offset']:X} | {entry['compressed_bytes']:,} | {entry['uncompressed_bytes']:,} | {entry['flags']} | {entry.get('blob_magic', entry.get('blob_error', 'unknown'))} |")
+                  lines.append(f"| `{entry['name_hash']}` | 0x{entry['blob_offset']:X} | {entry['compressed_bytes']:,} | {entry['uncompressed_bytes']:,} | 0x{entry['descriptor_word_4']:08X} | 0x{entry['descriptor_word_5']:08X} | {entry.get('blob_magic', entry.get('blob_error', 'unknown'))} |")
               lines.extend(["", f"Parser errors: `{item.get('errors', [])}`", ""])
           with open(sys.argv[2], "w", encoding="utf-8") as stream:
               stream.write("\n".join(lines) + "\n")
